@@ -23,19 +23,19 @@ fn parse_input(input: String) -> Vec<i32> {
         .collect()
 }
 
-fn part1(changes: &Vec<i32>) -> i32 {
+fn part1(changes: &[i32]) -> i32 {
     changes.iter().sum()
 }
 
 fn part2(changes: &Vec<i32>) -> i32 {
     let mut past_values = std::collections::HashSet::new();
     let mut current_value = 0;
-    
+
     // for c in changes.iter().cycle() {}
     let mut i = 0;
     while past_values.insert(current_value) {
         current_value += changes[i];
-        i = (i+1) % changes.len();
+        i = (i + 1) % changes.len();
     }
     current_value
 }
