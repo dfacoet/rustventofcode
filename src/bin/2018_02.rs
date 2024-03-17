@@ -1,4 +1,4 @@
-use rustventofcode::parse_input;
+use rustventofcode::parse::to_strings;
 use std::collections::HashMap;
 use std::fs;
 
@@ -7,7 +7,7 @@ const DAY: u8 = 2;
 fn main() {
     let input_file = format!("inputs/{YEAR}_{DAY:02}.txt");
     let input = fs::read_to_string(input_file).expect("Input file not found");
-    let parsed_input = parse_input(input);
+    let parsed_input = to_strings(input);
 
     let sol1 = part1(&parsed_input);
     let sol2 = part2(&parsed_input);
