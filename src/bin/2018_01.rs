@@ -27,7 +27,7 @@ fn part1(changes: &[i32]) -> i32 {
     changes.iter().sum()
 }
 
-fn part2(changes: &Vec<i32>) -> i32 {
+fn part2(changes: &[i32]) -> i32 {
     let mut past_values = std::collections::HashSet::new();
     let mut current_value = 0;
 

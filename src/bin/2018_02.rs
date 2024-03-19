@@ -44,7 +44,7 @@ fn count_chars(s: &str) -> HashMap<char, u32> {
     counter
 }
 
-fn part2(strings: &Vec<String>) -> String {
+fn part2(strings: &[String]) -> String {
     for i in 0..strings.len() {
         for j in i + 1..strings.len() {
             if differ_by_one(&strings[i], &strings[j]) {
