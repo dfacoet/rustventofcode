@@ -57,7 +57,10 @@ fn part1(map: &Vec<Vec<char>>) -> usize {
 
     while let Some(((t, p), (hp, race))) = creatures.pop_first() {
         // println!("{} {:?}", creatures.len(), creatures);
-        if creatures.len() < 4 {println!("{} {:?}", creatures.len(), creatures); break;}
+        if creatures.len() < 4 {
+            println!("{} {:?}", creatures.len(), creatures);
+            break;
+        }
         let new_p = match find_move(&map, &t, &p, &race, &creatures) {
             Move::Attack(target_p, target_turn) => {
                 let (target_hp, target_race) = creatures.get_mut(&(target_turn, target_p)).unwrap();
@@ -70,7 +73,7 @@ fn part1(map: &Vec<Vec<char>>) -> usize {
                     println!("New HP: {target_hp}");
                 } else {
                     println!("Dead");
-                    *counter.get_mut(&target_race).unwrap() -= 1;
+                    *counter.get_mut(target_race).unwrap() -= 1;
                     creatures.remove(&(target_turn, target_p));
                     map[target_p.0][target_p.1] = '.';
                     println!("{:?}", counter);
@@ -88,9 +91,9 @@ fn part1(map: &Vec<Vec<char>>) -> usize {
                 map[p.0][p.1] = '.';
                 new_p
             }
-            Move::Pass => { p }
+            Move::Pass => p,
         };
-        creatures.insert((t+1, new_p), (hp, race));
+        creatures.insert((t + 1, new_p), (hp, race));
     }
     let t = creatures.first_key_value().unwrap().0 .0;
     let total_score: usize = creatures.iter().map(|(_, (hp, _))| *hp as usize).sum();
@@ -149,7 +152,7 @@ fn find_move(
             .filter(|n| !path.contains(n))
         {
             if map[n.0][n.1] == '.' {
-                for nn in neighbors(&n) {
+                for nn in neighbors(n) {
                     match map[nn.0][nn.1] {
                         'G' if *race == Race::Elf => {
                             // Found a path leading to attack.
@@ -181,6 +184,6 @@ fn find_move(
     Move::Pass
 }
 
-fn part2(map: &Vec<Vec<char>>) -> usize {
+fn part2(_map: &Vec<Vec<char>>) -> usize {
     0
 }
