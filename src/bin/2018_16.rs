@@ -1,7 +1,10 @@
-use std::{fs, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    str::FromStr,
+};
 
 use enum_iterator::Sequence;
-
 const YEAR: u16 = 2018;
 const DAY: u8 = 16;
 
@@ -97,7 +100,7 @@ fn parse_input(input: String) -> (Vec<Example>, Vec<Instr>) {
     }
 }
 
-#[derive(Sequence)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Sequence)]
 enum Op {
     Addr,
     Addi,
@@ -158,6 +161,54 @@ fn part1((examples, _): &(Vec<Example>, Vec<Instr>)) -> usize {
         .count()
 }
 
-fn part2((_examples, _program): &(Vec<Example>, Vec<Instr>)) -> usize {
-    0
+fn part2((examples, program): &(Vec<Example>, Vec<Instr>)) -> usize {
+    // opcode -> {possible operations}
+    let mut op_map = HashMap::new();
+    for i in 0..16 {
+        let all_ops = enum_iterator::all::<Op>().collect::<HashSet<Op>>();
+        op_map.insert(i, all_ops);
+    }
+
+    // filter out operations not matching the examples
+    for example in examples {
+        op_map
+            .get_mut(&example.instr.opcode)
+            .unwrap()
+            .retain(|op| apply_op(op, example.before, example.instr) == example.after);
+    }
+
+    // Filter out ops for which we found the opcode, until
+    // all values of op_map have length one
+    let mut assigned_ops: HashSet<_> = op_map
+        .values()
+        .filter(|ops| ops.len() == 1)
+        .map(|ops| *ops.iter().next().unwrap())
+        .collect();
+
+    while assigned_ops.len() < 16 {
+        op_map
+            .values_mut()
+            .map(|possible_ops| {
+                if possible_ops.len() > 1 {
+                    possible_ops.retain(|op| !assigned_ops.contains(op));
+
+                    if possible_ops.len() == 1 {
+                        assigned_ops.insert(*possible_ops.iter().next().unwrap());
+                    }
+                }
+            })
+            .count();
+    }
+
+    let op_map: HashMap<_, _> = op_map
+        .iter()
+        .map(|(i, ops)| (i, ops.iter().next().unwrap()))
+        .collect();
+
+    let mut register = [0, 0, 0, 0];
+    for instr in program {
+        let op = &op_map[&instr.opcode];
+        register = apply_op(op, register, *instr);
+    }
+    register[0]
 }
