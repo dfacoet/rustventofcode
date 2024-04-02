@@ -2,7 +2,6 @@ use std::{
     cmp::{max, min},
     collections::HashSet,
     fs,
-    hash::Hash,
     str::FromStr,
 };
 
@@ -40,13 +39,6 @@ enum Line {
 }
 
 impl Line {
-    fn contains(&self, (x, y): (usize, usize)) -> bool {
-        match *self {
-            Line::Horizontal((left, right), d) => y == d && left <= x && x <= right,
-            Line::Vertical(d, (bottom, top)) => x == d && bottom <= y && y <= top,
-        }
-    }
-
     fn points(&self) -> HashSet<(usize, usize)> {
         match *self {
             Line::Horizontal((left, right), y) => (left..=right).map(|x| (x, y)).collect(),
@@ -94,7 +86,6 @@ fn part1(clay_lines: &[Line]) -> usize {
         ymin = min(ymin, bottom);
         ymax = max(ymax, top);
     }
-    println!("{xmin} {xmax} {ymin} {ymax}");
 
     let mut grid = vec![vec!['.'; xmax + 2]; ymax + 2]; // wasting some space to avoid dealing with offsets
     for line in clay_lines {
@@ -102,36 +93,30 @@ fn part1(clay_lines: &[Line]) -> usize {
             grid[point.1][point.0] = '#';
         }
     }
-    print_grid(&grid, "initial", &xmin);
     flow(500, 0, &mut grid);
-    // let mut blocked = clay_lines
-    //     .iter()
-    //     .flat_map(|l| l.points())
-    //     .collect::<HashSet<_>>();
-    // println!(
-    //     "{} {}",
-    //     (ymax - ymin + 1) * (xmax - xmin + 3),
-    //     blocked.len()
-    // );
-    print_grid(&grid, "one flow", &xmin);
     grid.iter()
         .skip(ymin)
-        .map(|row| row.iter().filter(|&&c| c == '|' || c == '~').count())
+        .take(ymax - ymin + 1)
+        .map(|row| {
+            row.iter()
+                .skip(xmin - 1) // TODO: Fix filling algorithm that creates a spill at xmin-1 instead of skipping
+                .filter(|&&c| c == '|' || c == '~')
+                .count()
+        })
         .sum()
 }
 
-fn print_grid(grid: &Vec<Vec<char>>, name: &str, xmin: &usize) {
-    let grid_str = grid
-        .iter()
-        .map(|row| row.iter().skip(*xmin).collect::<String>())
-        .collect::<Vec<String>>()
-        .join("\n");
-    let fname = format!("1817_grid_{name}.txt");
-    fs::write(fname, grid_str).unwrap();
-}
+// fn print_grid(grid: &[Vec<char>], name: &str, xmin: &usize) {
+//     let grid_str = grid
+//         .iter()
+//         .map(|row| row.iter().skip(*xmin - 1).collect::<String>())
+//         .collect::<Vec<String>>()
+//         .join("\n");
+//     let fname = format!("1817_grid_{name}.txt");
+//     fs::write(fname, grid_str).unwrap();
+// }
 
 fn flow(x0: usize, y0: usize, grid: &mut Vec<Vec<char>>) {
-    println!("flow {x0} {y0}");
     if y0 == grid.len() - 1 || grid[y0 + 1][x0] == '|' {
         return;
     }
@@ -163,9 +148,6 @@ fn flow(x0: usize, y0: usize, grid: &mut Vec<Vec<char>>) {
             flow(x, y0, grid);
             break;
         }
-        // if grid[y0 + 1][x] == '|' {
-        //     break;
-        // }
     }
 
     if let (Some(xl), Some(xr)) = (left_wall, right_wall) {
@@ -173,19 +155,43 @@ fn flow(x0: usize, y0: usize, grid: &mut Vec<Vec<char>>) {
         for x in xl + 1..xr {
             grid[y0][x] = '~';
         }
-        println!("filling row");
+        grid[y0 - 1][x0] = '|';
         flow(x0, y0 - 1, grid);
     }
-
-    // Cases:
-    // - x0,y0+1 is empty -> flow down
-    // - reached the bottom -> stop
-    // - hit a shelf: iterate left and right until either
-    //     - find a wall
-    //          - if both walls, fill with ~
-    //     - find a hole
 }
 
-fn part2(clay: &[Line]) -> usize {
-    0
+fn part2(clay_lines: &[Line]) -> usize {
+    let (mut xmin, mut xmax) = (usize::MAX, usize::MIN);
+    let (mut ymin, mut ymax) = (usize::MAX, usize::MIN);
+    for line in clay_lines {
+        let (&left, &right, &bottom, &top) = match line {
+            Line::Horizontal((left, right), y) => (left, right, y, y),
+            Line::Vertical(x, (bottom, top)) => (x, x, bottom, top),
+        };
+        xmin = min(xmin, left);
+        xmax = max(xmax, right);
+        ymin = min(ymin, bottom);
+        ymax = max(ymax, top);
+    }
+    let mut grid = vec![vec!['.'; xmax + 2]; ymax + 2]; // wasting some space to avoid dealing with offsets
+    for line in clay_lines {
+        for point in line.points() {
+            grid[point.1][point.0] = '#';
+        }
+    }
+    flow(500, 0, &mut grid);
+    // fix incomplete filling of rows
+    // TODO: fix the filling algorithm instead
+    for y in 1..ymax {
+        for x in xmin..xmax {
+            if grid[y][x] == '|' && grid[y - 1][x] == '~' {
+                grid[y][x] = '~';
+            }
+        }
+    }
+    grid.iter()
+        .skip(ymin)
+        .take(ymax - ymin + 1)
+        .map(|row| row.iter().filter(|&&c| c == '~').count())
+        .sum()
 }
