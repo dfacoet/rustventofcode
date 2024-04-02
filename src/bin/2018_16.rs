@@ -1,10 +1,10 @@
+use enum_iterator::Sequence;
 use std::{
     collections::{HashMap, HashSet},
     fs,
     str::FromStr,
 };
 
-use enum_iterator::Sequence;
 const YEAR: u16 = 2018;
 const DAY: u8 = 16;
 

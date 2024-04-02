@@ -1,9 +1,8 @@
+use itertools::Itertools;
 use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs, vec,
 };
-
-use itertools::Itertools;
 
 const YEAR: u16 = 2018;
 const DAY: u8 = 15;
