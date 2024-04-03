@@ -29,14 +29,14 @@ pub fn parse_input(input: String) -> Vec<Vec<char>> {
         .collect()
 }
 
-fn part1(map: &Vec<Vec<char>>) -> usize {
+fn part1(map: &[Vec<char>]) -> usize {
     // (turns, coordinates) -> (HP, race)
     let mut creatures = BTreeMap::<(usize, (usize, usize)), (u8, Race)>::new();
     let mut counter = HashMap::<Race, usize>::new();
     counter.insert(Race::Goblin, 0);
     counter.insert(Race::Elf, 0);
 
-    let mut map = map.clone();
+    let mut map = map.to_owned();
     for (i, line) in map.iter_mut().enumerate() {
         for (j, c) in line.iter_mut().enumerate() {
             match c {
@@ -118,12 +118,14 @@ fn neighbors(p: &(usize, usize)) -> [(usize, usize); 4] {
     [(i - 1, j), (i, j - 1), (i, j + 1), (i + 1, j)]
 }
 
+type CreatureTreeMap = BTreeMap<(usize, (usize, usize)), (u8, Race)>;
+
 fn find_move(
     map: &[Vec<char>],
     t: &usize,
     p: &(usize, usize),
     race: &Race,
-    creatures: &BTreeMap<(usize, (usize, usize)), (u8, Race)>,
+    creatures: &CreatureTreeMap,
 ) -> Move {
     for n in neighbors(p) {
         // if let Some(x) = ... && condition(x) is unstable.
@@ -183,6 +185,6 @@ fn find_move(
     Move::Pass
 }
 
-fn part2(_map: &Vec<Vec<char>>) -> usize {
+fn part2(_map: &[Vec<char>]) -> usize {
     0
 }

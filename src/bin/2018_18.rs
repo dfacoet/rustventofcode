@@ -45,7 +45,6 @@ fn part2(grid: &Grid) -> usize {
     let mut seen = HashMap::new();
 
     let n_iter = 1_000_000_000;
-
     for i in 0..n_iter {
         if let Some(j) = seen.insert(grid, i) {
             if (n_iter - i) % (i - j) == 0 {
@@ -97,10 +96,12 @@ fn neighbours(i: usize, j: usize, grid: &Grid) -> HashMap<char, u8> {
     let xmax = min(i + 1, SIZE - 1);
     let ymin = if j == 0 { 0 } else { j - 1 };
     let ymax = min(j + 1, SIZE - 1);
-    for ni in xmin..=xmax {
-        for nj in ymin..=ymax {
+    
+    // Not sure this is more readable than for nj in ymin..=ymax but clippy does not like that
+    for (nj, row) in grid.iter().enumerate().take(ymax + 1).skip(ymin) {
+        for (ni, c) in row.iter().enumerate().take(xmax + 1).skip(xmin) {
             if (ni, nj) != (i, j) {
-                *counts.get_mut(&grid[nj][ni]).unwrap() += 1;
+                *counts.get_mut(c).unwrap() += 1;
             }
         }
     }

@@ -55,7 +55,6 @@ struct Node {
 
 impl Node {
     fn sum(&self) -> usize {
-        println!("{}", self.children.len());
         let children_sum: usize = self.children.iter().map(|n| n.sum()).sum();
         let node_sum: usize = self.data.iter().sum();
         children_sum + node_sum
@@ -63,7 +62,6 @@ impl Node {
 
     fn value(&self) -> usize {
         let n = self.children.len();
-        println!("{n}");
         let value = if n == 0 {
             self.data.iter().sum()
         } else {
