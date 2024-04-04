@@ -96,7 +96,7 @@ fn neighbours(i: usize, j: usize, grid: &Grid) -> HashMap<char, u8> {
     let xmax = min(i + 1, SIZE - 1);
     let ymin = if j == 0 { 0 } else { j - 1 };
     let ymax = min(j + 1, SIZE - 1);
-    
+
     // Not sure this is more readable than for nj in ymin..=ymax but clippy does not like that
     for (nj, row) in grid.iter().enumerate().take(ymax + 1).skip(ymin) {
         for (ni, c) in row.iter().enumerate().take(xmax + 1).skip(xmin) {
