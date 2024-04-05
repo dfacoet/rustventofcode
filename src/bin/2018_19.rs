@@ -1,4 +1,4 @@
-use std::{fs, str::FromStr, time::Instant};
+use std::{fs, str::FromStr};
 
 const YEAR: u16 = 2018;
 const DAY: u8 = 19;
@@ -32,6 +32,7 @@ fn parse_input(input: String) -> (usize, Vec<Instr>) {
 
 fn part1((ip, instructions): &(usize, Vec<Instr>)) -> usize {
     let mut registers = [0; 6];
+
     while registers[*ip] < instructions.len() {
         instructions[registers[*ip]].apply(&mut registers);
         registers[*ip] += 1;
@@ -42,22 +43,27 @@ fn part1((ip, instructions): &(usize, Vec<Instr>)) -> usize {
 fn part2((ip, instructions): &(usize, Vec<Instr>)) -> usize {
     let mut registers = [0; 6];
     registers[0] = 1;
-    let mut c: usize = 0;
-    let mut cc: u128 = 0;
-    let start_time = Instant::now();
-    while registers[*ip] < instructions.len() {
+
+    // Solved by inspecting the instructions:
+    // lines 17-end only run once, to initialise register[5]. Lines 27-end only run
+    // if registers[0] = 1, making the value bigger for part2.
+    // Initialisation finishes when instruction 1 is executed.
+    while registers[*ip] != 1 {
         instructions[registers[*ip]].apply(&mut registers);
         registers[*ip] += 1;
-        c += 1;
-        if c == 1_000_000_000 {
-            c = 0;
-            cc += 1;
-            let total_seconds = start_time.elapsed().as_secs();
-            let hh = total_seconds / 3600;
-            let mm = (total_seconds % 3600) / 60;
-            let ss = total_seconds % 60;
-            let reg = format!("{:?}", registers);
-            println!("{cc:<10} {reg:<40} time: {hh:02}:{mm:02}:{ss:02}");
+    }
+    // lines 1-16 are equivalent to
+    // for x in 1..=registers[5] {
+    //     for y in 1..=registers[5] {
+    //         if x * y == registers[5] {
+    //             registers[0] += x;
+    //         }
+    //     }
+    // }
+    // Which just computes the sum of divisors of register[5]
+    for x in 1..=registers[5] {
+        if registers[5] % x == 0 {
+            registers[0] += x;
         }
     }
     registers[0]
@@ -77,17 +83,9 @@ impl Instr {
             Op::Addi => registers[self.a] + self.b,
             Op::Mulr => registers[self.a] * registers[self.b],
             Op::Muli => registers[self.a] * self.b,
-            Op::Banr => registers[self.a] & registers[self.b],
-            Op::Bani => registers[self.a] & self.b,
-            Op::Borr => registers[self.a] | registers[self.b],
-            Op::Bori => registers[self.a] | self.b,
             Op::Setr => registers[self.a],
             Op::Seti => self.a,
-            Op::Gtir => (self.a > registers[self.b]) as usize,
-            Op::Gtri => (registers[self.a] > self.b) as usize,
             Op::Gtrr => (registers[self.a] > registers[self.b]) as usize,
-            Op::Eqir => (self.a == registers[self.b]) as usize,
-            Op::Eqri => (registers[self.a] == self.b) as usize,
             Op::Eqrr => (registers[self.a] == registers[self.b]) as usize,
         }
     }
@@ -103,20 +101,11 @@ impl FromStr for Instr {
                 "addi" => Op::Addi,
                 "mulr" => Op::Mulr,
                 "muli" => Op::Muli,
-                "banr" => Op::Banr,
-                "bani" => Op::Bani,
-                "borr" => Op::Borr,
-                "bori" => Op::Bori,
                 "setr" => Op::Setr,
                 "seti" => Op::Seti,
-                "gtir" => Op::Gtir,
-                "gtri" => Op::Gtri,
                 "gtrr" => Op::Gtrr,
-                "eqir" => Op::Eqir,
-                "eqri" => Op::Eqri,
                 "eqrr" => Op::Eqrr,
                 _ => {
-                    println!("{s}");
                     return Err(());
                 }
             };
@@ -131,20 +120,21 @@ impl FromStr for Instr {
 }
 
 enum Op {
+    // Commented out ops are not found in the input
     Addr,
     Addi,
     Mulr,
     Muli,
-    Banr,
-    Bani,
-    Borr,
-    Bori,
+    // Banr,
+    // Bani,
+    // Borr,
+    // Bori,
     Setr,
     Seti,
-    Gtir,
-    Gtri,
+    // Gtir,
+    // Gtri,
     Gtrr,
-    Eqir,
-    Eqri,
+    // Eqir,
+    // Eqri,
     Eqrr,
 }
