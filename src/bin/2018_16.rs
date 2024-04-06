@@ -48,6 +48,9 @@ impl FromStr for Example {
     }
 }
 
+// TODO: reduce code duplication by using rustventofcode::device18
+// Note that Instr is different (opcode: usize instead of op: string)
+// but the Op enum and apply methods could be used.
 #[derive(Clone, Copy, Debug)]
 struct Instr {
     opcode: usize,
