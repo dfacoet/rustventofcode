@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 enum-iterator = "2.0.0"
 itertools = "0.12.1"
+priority-queue = "2.0.2"
 regex = "1.10.3"
 time = { version = "0.3.34", features = ["parsing"]}

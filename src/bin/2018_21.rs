@@ -79,12 +79,9 @@ fn part2((ip, instructions): &(usize, Vec<Instr>)) -> usize {
             }
         }
         c += 1;
-    if c > 10usize.pow(10) {
-        break;
-    }
+        if c > 10usize.pow(10) {
+            break;
+        }
     }
     *solutions.iter().max_by_key(|(_, &v)| v).unwrap().0
 }
-
-// 14415175 is too high
-// 9547924
