@@ -1,4 +1,8 @@
-use std::{cmp::Reverse, collections::HashMap, fs};
+use std::{
+    cmp::{min, Reverse},
+    collections::{HashMap, HashSet},
+    fs,
+};
 
 use itertools::Itertools;
 use priority_queue::PriorityQueue;
@@ -45,10 +49,14 @@ fn part1((depth, target): &(usize, (usize, usize))) -> usize {
 }
 
 fn part2((depth, target): &(usize, (usize, usize))) -> usize {
+    // let depth = &7305;
+    // let target = &(13, 734);
+    // let depth = &510;
+    // let target = &(10, 10);
     // For now: make the grid bigger and hope the finite-grid optimal path
     // is also the optimal path on the infinite grid.
     // Idea to improve: infinite search with cutoff at target distance
-    let grid = build_grid(depth, target, &(50, 20));
+    let grid = build_grid(depth, target, &(200, 200));
 
     // Nodes: (x, y, tool) with tool in {0, 1, 2}. grid[y][x] == tool is not allowed.
     // 0: rocky / no equipment
@@ -59,29 +67,27 @@ fn part2((depth, target): &(usize, (usize, usize))) -> usize {
     let mut dist = HashMap::new();
     dist.insert(start, 0);
     let mut q = PriorityQueue::new();
-    q.push(start, Reverse(0usize));
+    q.push_increase(start, Reverse(0usize));
 
     while let Some((node, rev_d)) = q.pop() {
-        if node == (target.0, target.1, 1) {
-            break;
-        }
-        let d = rev_d.0;
-        // println!("{:?} {d}, {:?}", q.len(), node);
-        // if q.len() < 20 {
-        //     println!("{:?}", q);
-        // }
+        assert!(*dist.get(&node).unwrap() == rev_d.0);
         for (neighbor, weight) in get_neighbors(&node, &grid) {
-            let new_d = d + weight;
-            if !dist.contains_key(&neighbor) || new_d < *dist.get(&neighbor).unwrap() {
+            let new_d = rev_d.0 + weight;
+            if new_d < *dist.get(&neighbor).unwrap_or(&usize::MAX) {
                 dist.insert(neighbor, new_d);
-                q.push_decrease(neighbor, Reverse(new_d));
+                q.push_increase(neighbor, Reverse(new_d));
             }
         }
     }
-    *dist.get(&(target.0, target.1, 1)).unwrap()
+    // *dist.get(&(target.0, target.1, 1)).unwrap()
+    min(
+        *dist.get(&(target.0, target.1, 1)).unwrap(),
+        *dist.get(&(target.0, target.1, 2)).unwrap() + 7,
+    )
 }
 
 // 1081 is too high
+// 1070, 1071, 1073, 1078 are wrong
 
 fn build_grid(depth: &usize, target: &(usize, usize), extra: &(usize, usize)) -> Vec<Vec<usize>> {
     let mut grid: Vec<Vec<usize>> = Vec::new();
@@ -120,55 +126,32 @@ fn get_neighbors(node: &Node, grid: &Vec<Vec<usize>>) -> HashMap<Node, usize> {
         grid_neighbors.push((x, y + 1));
     }
 
-    // Move to an allowed neighbouring cell
-    let mut neighbors: HashMap<_, _> = grid_neighbors
+    // // Move to an allowed neighbouring cell
+    // let mut neighbors: HashMap<_, _> = grid_neighbors
+    //     .into_iter()
+    //     .filter_map(|(nx, ny)| {
+    //         if grid[ny][nx] != tool {
+    //             Some(((nx, ny, tool), 1))
+    //         } else {
+    //             None
+    //         }
+    //     })
+    //     .collect();
+    // // Or change tool
+    // let new_tool = 3 - (grid[y][x] + tool);
+    // neighbors.insert((x, y, new_tool), 7);
+    // neighbors
+
+    grid_neighbors
         .into_iter()
-        .filter_map(|(nx, ny)| {
-            if grid[ny][nx] != tool {
-                Some(((nx, ny, tool), 1))
+        .map(|(nx, ny)| {
+            if grid[ny][nx] == tool {
+                // Change tool only if necessary to move
+                let new_tool = 3 - (grid[y][x] + tool);
+                ((nx, ny, new_tool), 8)
             } else {
-                None
+                ((nx, ny, tool), 1)
             }
         })
-        .collect();
-    // Or change tool
-    let new_tool = 3 - (grid[y][x] + tool);
-    neighbors.insert((x, y, new_tool), 7);
-    neighbors
-
-    // .map(|(nx, ny)| {
-    //     if grid[ny][nx] != tool {
-    //         // The tool is allowed
-    //         ((nx, ny, tool), 1)
-    //     } else {
-    //         // Find the only tool change that is allowed both on the current and neighbor cells
-    //         // i.e. the number in Z/Z3 that's different from both grid[y][x] and tool
-    //         let ntool = 3 - (grid[y][x] + tool);
-    //         ((nx, ny, ntool), 8)
-    //     }
-    // })
-    // .collect()
+        .collect()
 }
-
-// fn add_row(grid: &mut Vec<Vec<usize>>, depth: &usize) {
-//     let w = grid[0].len();
-//     let y = grid.len();
-//     let mut row = Vec::with_capacity(w);
-//     row.push((y * 48271 + *depth) % 20183);
-//     for x in 1..w {
-//         let geologic_index = grid[y - 1][x] * row[x - 1];
-//         let erosion_level = (geologic_index + *depth) % 20183;
-//         row.push(erosion_level);
-//     }
-//     grid.push(row);
-// }
-
-// fn add_col(grid: &mut Vec<Vec<usize>>, depth: &usize) {
-//     let h = grid.len();
-//     let x = grid[0].len();
-//     grid[0].push((x * 16807 + *depth) % 20183);
-//     for y in 1..h {
-//         let erosion_level = (grid[y - 1][x] * grid[y][x - 1] + *depth) % 20183;
-//         grid[y].push(erosion_level);
-//     }
-// }
