@@ -45,10 +45,16 @@ fn part2(nanobots: &[Nanobot]) -> usize {
         }
     }
     let mut max_size = 1;
-    while max_size < max_coord.iter().zip(min_coord.iter()).map(|(a, b)| (a - b).abs()).sum() {
+    while max_size
+        < max_coord
+            .iter()
+            .zip(min_coord.iter())
+            .map(|(a, b)| (a - b).abs())
+            .sum()
+    {
         max_size *= 2;
     }
-    
+
     0
 }
 

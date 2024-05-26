@@ -2,6 +2,7 @@ use std::fs;
 
 const YEAR: u16 = 2018;
 const DAY: u8 = 1;
+
 fn main() {
     let input_file = format!("inputs/{YEAR}_{DAY:02}.txt");
     let input = fs::read_to_string(input_file).expect("Input file not found");
