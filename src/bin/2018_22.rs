@@ -56,7 +56,7 @@ fn part2((depth, target): &(usize, (usize, usize))) -> usize {
     // For now: make the grid bigger and hope the finite-grid optimal path
     // is also the optimal path on the infinite grid.
     // Idea to improve: infinite search with cutoff at target distance
-    let grid = build_grid(depth, target, &(200, 200));
+    let grid = build_grid(depth, target, &(20, 20));
 
     // Nodes: (x, y, tool) with tool in {0, 1, 2}. grid[y][x] == tool is not allowed.
     // 0: rocky / no equipment
@@ -79,15 +79,18 @@ fn part2((depth, target): &(usize, (usize, usize))) -> usize {
             }
         }
     }
-    // *dist.get(&(target.0, target.1, 1)).unwrap()
     min(
-        *dist.get(&(target.0, target.1, 1)).unwrap(),
-        *dist.get(&(target.0, target.1, 2)).unwrap() + 7,
+        *dist
+            .get(&(target.0, target.1, 1))
+            .or(Some(&usize::MAX))
+            .unwrap(),
+        *dist
+            .get(&(target.0, target.1, 2))
+            .or(Some(&usize::MAX))
+            .unwrap()
+            + 7,
     )
 }
-
-// 1081 is too high
-// 1070, 1071, 1073, 1078 are wrong
 
 fn build_grid(depth: &usize, target: &(usize, usize), extra: &(usize, usize)) -> Vec<Vec<usize>> {
     let mut grid: Vec<Vec<usize>> = Vec::new();
@@ -97,13 +100,16 @@ fn build_grid(depth: &usize, target: &(usize, usize), extra: &(usize, usize)) ->
     for y in 1..h {
         let mut row = vec![(y * 48271 + *depth) % 20183];
         for x in 1..w {
-            let geologic_index = grid[y - 1][x] * row[x - 1];
+            let geologic_index = if (x, y) == *target {
+                0
+            } else {
+                grid[y - 1][x] * row[x - 1]
+            };
             let erosion_level = (geologic_index + *depth) % 20183;
             row.push(erosion_level);
         }
         grid.push(row);
     }
-    grid[target.1][target.0] = 0;
     grid.iter_mut().flatten().for_each(|v| *v %= 3);
     grid
 }
@@ -125,22 +131,6 @@ fn get_neighbors(node: &Node, grid: &Vec<Vec<usize>>) -> HashMap<Node, usize> {
     if y < grid.len() - 1 {
         grid_neighbors.push((x, y + 1));
     }
-
-    // // Move to an allowed neighbouring cell
-    // let mut neighbors: HashMap<_, _> = grid_neighbors
-    //     .into_iter()
-    //     .filter_map(|(nx, ny)| {
-    //         if grid[ny][nx] != tool {
-    //             Some(((nx, ny, tool), 1))
-    //         } else {
-    //             None
-    //         }
-    //     })
-    //     .collect();
-    // // Or change tool
-    // let new_tool = 3 - (grid[y][x] + tool);
-    // neighbors.insert((x, y, new_tool), 7);
-    // neighbors
 
     grid_neighbors
         .into_iter()

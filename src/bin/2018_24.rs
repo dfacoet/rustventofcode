@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs, hash::Hash, str::FromStr};
+use std::{collections::HashSet, fs, str::FromStr};
 
 use regex::Regex;
 
@@ -133,6 +133,7 @@ impl Army {
     }
 
     fn sort_by_power(&mut self) {
-        self.groups.sort_by_key(|g| (g.effective_power(), g.initiative));
+        self.groups
+            .sort_by_key(|g| (g.effective_power(), g.initiative));
     }
 }
