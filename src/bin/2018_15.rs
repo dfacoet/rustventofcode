@@ -47,10 +47,22 @@ fn parse_input(input: String) -> Grid {
 }
 
 fn part1(input: &Grid) -> String {
-    let mut grid = *input;
+    let (grid, n_rounds, _) = run_battle(input, 3);
+
+    let total_hp: u64 = get_units(&grid).iter().map(|unit| unit.hp).sum();
+    let outcome = n_rounds * total_hp;
+    outcome.to_string()
+}
+
+fn part2(_input: &Grid) -> String {
+    "".to_string()
+}
+
+fn run_battle(grid: &Grid, elf_atk: u64) -> (Grid, u64, UnitType) {
+    let mut grid = *grid;
 
     let mut n_rounds = 0;
-    'outer: loop {
+    loop {
         let mut units = get_units(&grid);
         for unit in &mut units {
             // Check if the unit is still there
@@ -64,25 +76,30 @@ fn part1(input: &Grid) -> String {
             // - after checking to attack, check if any target is left (no need to get their position)
             //   if not, break.
 
-            let targets = get_targets_positions(&grid, &unit.unit_type);
-            if targets.is_empty() {
-                // No targets left, the battle is over
-                break 'outer;
-            }
             if let Some((i, j)) = find_move(unit, &grid) {
                 grid[unit.position.0][unit.position.1] = CellState::Empty;
                 unit.position = (i, j);
                 grid[i][j] = CellState::Unit(*unit);
             }
-            if let Some((_, (ti, tj))) = targets
+
+            if let Some((_, ti, tj)) = neighbor_indices(&unit.position)
                 .iter()
-                .filter(|(_, pos)| is_in_range(&unit.position, pos))
+                .filter_map(|(ni, nj)| match grid[*ni][*nj] {
+                    CellState::Unit(target) if target.unit_type != unit.unit_type => {
+                        Some((target.hp, ni, nj))
+                    }
+                    _ => None,
+                })
                 .min()
             {
                 match &mut grid[*ti][*tj] {
                     CellState::Unit(ref mut target) if target.unit_type != unit.unit_type => {
-                        if target.hp > ATTACK_POWER {
-                            target.hp -= ATTACK_POWER;
+                        let atk = match unit.unit_type {
+                            UnitType::Elf => elf_atk,
+                            UnitType::Goblin => 3,
+                        };
+                        if target.hp > atk {
+                            target.hp -= atk;
                         } else {
                             grid[*ti][*tj] = CellState::Empty;
                         }
@@ -90,17 +107,19 @@ fn part1(input: &Grid) -> String {
                     _ => panic!("No target found at {:},{:}", ti, tj),
                 };
             }
+
+            if !grid.iter().any(|row| {
+                row.iter().any(|cell| match cell {
+                    CellState::Unit(u) => u.unit_type != unit.unit_type,
+                    _ => false,
+                })
+            }) {
+                // no enemies left, battle is over
+                return (grid, n_rounds, unit.unit_type);
+            }
         }
         n_rounds += 1;
     }
-
-    let total_hp: u64 = get_units(&grid).iter().map(|unit| unit.hp).sum();
-    let outcome = n_rounds * total_hp;
-    outcome.to_string()
-}
-
-fn part2(_input: &Grid) -> String {
-    "".to_string()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -110,7 +129,6 @@ enum UnitType {
 }
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-const ATTACK_POWER: u64 = 3;
 const MAX_HP: u64 = 200;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -183,25 +201,6 @@ fn get_units(grid: &Grid) -> Vec<Unit> {
         }
     }
     units
-}
-
-fn get_targets_positions(grid: &Grid, unit_type: &UnitType) -> Vec<(u64, Position)> {
-    grid.iter()
-        .flat_map(move |row| {
-            row.iter().filter_map(move |cell| match cell {
-                CellState::Unit(target) if target.unit_type != *unit_type => {
-                    Some((target.hp, target.position))
-                }
-                _ => None,
-            })
-        })
-        .collect()
-}
-
-fn is_in_range(source: &Position, target: &Position) -> bool {
-    let (x1, y1) = *source;
-    let (x2, y2) = *target;
-    (x1 == x2 && (y1.abs_diff(y2) == 1)) || (y1 == y2 && (x1.abs_diff(x2) == 1))
 }
 
 fn find_move(unit: &Unit, grid: &Grid) -> Option<Position> {
