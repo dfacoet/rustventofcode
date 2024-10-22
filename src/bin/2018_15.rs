@@ -1,11 +1,16 @@
+use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::fmt;
+use std::fs;
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use itertools::Itertools;
-use std::{
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    fs, vec,
-};
 
 const YEAR: u16 = 2018;
 const DAY: u8 = 15;
+
+const SIZE: usize = 32;
 
 fn main() {
     let input_file = format!("inputs/{YEAR}_{DAY:02}.txt");
@@ -22,169 +27,236 @@ fn main() {
     println!("Part 2: {sol2}");
 }
 
-pub fn parse_input(input: String) -> Vec<Vec<char>> {
-    input
-        .lines()
-        .map(|line| line.chars().collect_vec())
-        .collect()
-}
+type Grid = [[CellState; SIZE]; SIZE];
+type Position = (usize, usize);
 
-fn part1(map: &[Vec<char>]) -> usize {
-    // (turns, coordinates) -> (HP, race)
-    let mut creatures = BTreeMap::<(usize, (usize, usize)), (u8, Race)>::new();
-    let mut counter = HashMap::<Race, usize>::new();
-    counter.insert(Race::Goblin, 0);
-    counter.insert(Race::Elf, 0);
-
-    let mut map = map.to_owned();
-    for (i, line) in map.iter_mut().enumerate() {
-        for (j, c) in line.iter_mut().enumerate() {
-            match c {
-                'G' => {
-                    creatures.insert((0, (i, j)), (200, Race::Goblin));
-                    *counter.get_mut(&Race::Goblin).unwrap() += 1;
-                    // *c = '.';
-                }
-                'E' => {
-                    creatures.insert((0, (i, j)), (200, Race::Elf));
-                    *counter.get_mut(&Race::Elf).unwrap() += 1;
-                }
-                _ => {}
-            }
+fn parse_input(input: String) -> Grid {
+    let mut grid = [[CellState::Wall; SIZE]; SIZE];
+    for (i, line) in input.lines().enumerate() {
+        for (j, ch) in line.chars().enumerate() {
+            grid[i][j] = match ch {
+                '.' => CellState::Empty,
+                '#' => CellState::Wall,
+                'G' => CellState::Unit(Unit::new('G', (i, j))),
+                'E' => CellState::Unit(Unit::new('E', (i, j))),
+                _ => panic!("Invalid character in input: {} at ({},{})", ch, i, j),
+            };
         }
     }
+    grid
+}
 
-    while let Some(((t, p), (hp, race))) = creatures.pop_first() {
-        // println!("{} {:?}", creatures.len(), creatures);
-        if creatures.len() < 4 {
-            println!("{} {:?}", creatures.len(), creatures);
-            break;
-        }
-        let new_p = match find_move(&map, &t, &p, &race, &creatures) {
-            Move::Attack(target_p, target_turn) => {
-                let (target_hp, target_race) = creatures.get_mut(&(target_turn, target_p)).unwrap();
-                println!(
-                    "{:?} is attacking {:?} with {target_hp}HP",
-                    race, target_race
-                );
-                if *target_hp > 3 {
-                    *target_hp -= 3;
-                    println!("New HP: {target_hp}");
-                } else {
-                    println!("Dead");
-                    *counter.get_mut(target_race).unwrap() -= 1;
-                    creatures.remove(&(target_turn, target_p));
-                    map[target_p.0][target_p.1] = '.';
-                    println!("{:?}", counter);
-                    if counter.values().any(|c| *c == 0) {
-                        break;
+fn part1(input: &Grid) -> String {
+    let mut grid = *input;
+
+    let mut n_rounds = 0;
+    'outer: loop {
+        let mut units = get_units(&grid);
+        for unit in &mut units {
+            // Check if the unit is still there
+            match grid[unit.position.0][unit.position.1] {
+                CellState::Unit(grid_unit) if (grid_unit.id == unit.id) => *unit = grid_unit,
+                _ => continue,
+            };
+
+            // TODO: refactor. Remove get_targets_position and don't look at targets here
+            // - after moving, look at neighbors and attack the one with the least HP (if any)
+            // - after checking to attack, check if any target is left (no need to get their position)
+            //   if not, break.
+
+            let targets = get_targets_positions(&grid, &unit.unit_type);
+            if targets.is_empty() {
+                // No targets left, the battle is over
+                break 'outer;
+            }
+            if let Some((i, j)) = find_move(unit, &grid) {
+                grid[unit.position.0][unit.position.1] = CellState::Empty;
+                unit.position = (i, j);
+                grid[i][j] = CellState::Unit(*unit);
+            }
+            if let Some((_, (ti, tj))) = targets
+                .iter()
+                .filter(|(_, pos)| is_in_range(&unit.position, pos))
+                .min()
+            {
+                match &mut grid[*ti][*tj] {
+                    CellState::Unit(ref mut target) if target.unit_type != unit.unit_type => {
+                        if target.hp > ATTACK_POWER {
+                            target.hp -= ATTACK_POWER;
+                        } else {
+                            grid[*ti][*tj] = CellState::Empty;
+                        }
                     }
-                }
-                // creatures.insert((t + 1, p), (hp, race));
-                p
+                    _ => panic!("No target found at {:},{:}", ti, tj),
+                };
             }
-            Move::Walk(new_p) => {
-                println!("{:?} is moving to {}, {}", race, new_p.0, new_p.1);
-                // creatures.insert((t + 1, new_p), (hp, race));
-                map[new_p.0][new_p.1] = map[p.0][p.1];
-                map[p.0][p.1] = '.';
-                new_p
-            }
-            Move::Pass => p,
-        };
-        creatures.insert((t + 1, new_p), (hp, race));
+        }
+        n_rounds += 1;
     }
-    let t = creatures.first_key_value().unwrap().0 .0;
-    let total_score: usize = creatures.iter().map(|(_, (hp, _))| *hp as usize).sum();
-    t + total_score
+
+    let total_hp: u64 = get_units(&grid).iter().map(|unit| unit.hp).sum();
+    let outcome = n_rounds * total_hp;
+    outcome.to_string()
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
-enum Race {
+fn part2(_input: &Grid) -> String {
+    "".to_string()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum UnitType {
     Goblin,
     Elf,
 }
 
-enum Move {
-    Attack((usize, usize), usize), // (target_position, target_turn)
-    Walk((usize, usize)),
-    Pass,
+static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
+const ATTACK_POWER: u64 = 3;
+const MAX_HP: u64 = 200;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Unit {
+    id: usize,
+    unit_type: UnitType,
+    position: Position,
+    hp: u64,
 }
 
-fn neighbors(p: &(usize, usize)) -> [(usize, usize); 4] {
-    let (i, j) = *p;
-    // No need to check boundary (safety wall)
-    // Order implements "reading order"
-    [(i - 1, j), (i, j - 1), (i, j + 1), (i + 1, j)]
+impl Unit {
+    fn new(unit_type: char, position: Position) -> Self {
+        let unit_type = match unit_type {
+            'G' => UnitType::Goblin,
+            'E' => UnitType::Elf,
+            _ => panic!("Invalid unit type"),
+        };
+        Unit {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            unit_type,
+            position,
+            hp: MAX_HP,
+        }
+    }
 }
 
-type CreatureTreeMap = BTreeMap<(usize, (usize, usize)), (u8, Race)>;
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum CellState {
+    Empty,
+    Wall,
+    Unit(Unit),
+}
 
-fn find_move(
-    map: &[Vec<char>],
-    t: &usize,
-    p: &(usize, usize),
-    race: &Race,
-    creatures: &CreatureTreeMap,
-) -> Move {
-    for n in neighbors(p) {
-        // if let Some(x) = ... && condition(x) is unstable.
-        // Would like to match for _any_ turn, meaning this is not
-        // the best structure. TODO: think about it
-        if let Some((_, neighbor_race)) = creatures.get(&(*t, n)) {
-            if neighbor_race != race {
-                return Move::Attack(n, *t);
-            }
-        } else if let Some((_, neighbor_race)) = creatures.get(&(*t + 1, n)) {
-            if neighbor_race != race {
-                return Move::Attack(n, t + 1);
+impl fmt::Display for CellState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CellState::Empty => write!(f, "."),
+            CellState::Wall => write!(f, "#"),
+            CellState::Unit(unit) => match unit.unit_type {
+                UnitType::Goblin => write!(f, "G"),
+                UnitType::Elf => write!(f, "E"),
+            },
+        }
+    }
+}
+
+// fn print_grid(grid: &Grid) {
+//     for row in grid.iter() {
+//         let mut hps = Vec::new();
+//         for &cell in row.iter() {
+//             if let CellState::Unit(unit) = cell {
+//                 hps.push(unit.hp);
+//             }
+//             print!("{:}", cell);
+//         }
+//         if !hps.is_empty() {
+//             print!("    {:?}", hps)
+//         };
+//         println!();
+//     }
+// }
+
+fn get_units(grid: &Grid) -> Vec<Unit> {
+    let mut units = Vec::new();
+    for row in grid.iter() {
+        for cell in row.iter() {
+            if let CellState::Unit(ref unit) = cell {
+                units.push(*unit);
             }
         }
     }
+    units
+}
 
-    let mut paths = VecDeque::from(vec![vec![*p]]);
+fn get_targets_positions(grid: &Grid, unit_type: &UnitType) -> Vec<(u64, Position)> {
+    grid.iter()
+        .flat_map(move |row| {
+            row.iter().filter_map(move |cell| match cell {
+                CellState::Unit(target) if target.unit_type != *unit_type => {
+                    Some((target.hp, target.position))
+                }
+                _ => None,
+            })
+        })
+        .collect()
+}
+
+fn is_in_range(source: &Position, target: &Position) -> bool {
+    let (x1, y1) = *source;
+    let (x2, y2) = *target;
+    (x1 == x2 && (y1.abs_diff(y2) == 1)) || (y1 == y2 && (x1.abs_diff(x2) == 1))
+}
+
+fn find_move(unit: &Unit, grid: &Grid) -> Option<Position> {
+    let mut paths = VecDeque::new();
     let mut reached = HashSet::new();
-    reached.insert(*p);
+    paths.push_front(vec![unit.position]);
+    reached.insert(unit.position);
 
-    // print!("Thinking about move for {:?} at {},{}", race, p.0, p.1);
-    while let Some(path) = paths.pop_front() {
-        for n in neighbors(path.last().unwrap())
-            .iter()
-            .filter(|n| !path.contains(n))
-        {
-            if map[n.0][n.1] == '.' {
-                for nn in neighbors(n) {
-                    match map[nn.0][nn.1] {
-                        'G' if *race == Race::Elf => {
-                            // Found a path leading to attack.
-                            // Paths are generated in the right (lenght, reading) order
-                            // so return the first step
-                            let cell = if path.len() == 1 { nn } else { path[1] };
-                            return Move::Walk(cell);
+    while !paths.is_empty() {
+        let mut new_paths = VecDeque::<Vec<Position>>::new();
+        let mut target_paths = Vec::<Vec<Position>>::new();
+
+        for path in paths {
+            for (ni, nj) in neighbor_indices(path.last().unwrap())
+                .into_iter()
+                .filter(|n| reached.insert(*n))
+            {
+                let new_path = path
+                    .clone()
+                    .into_iter()
+                    .chain(std::iter::once((ni, nj)))
+                    .collect_vec();
+                match grid[ni][nj] {
+                    CellState::Unit(target) if target.unit_type != unit.unit_type => {
+                        // Found a path leading to attack
+                        if new_path.len() == 2 {
+                            // path is [current, target]. Do not move.
+                            return None;
                         }
-                        'E' if *race == Race::Goblin => {
-                            let cell = if path.len() == 1 { nn } else { path[1] };
-                            return Move::Walk(cell);
-                        }
-                        _ => {}
+                        target_paths.push(new_path);
                     }
-                }
-                // There's probably a better way to represent branching paths
-                if reached.insert(*n) {
-                    let new_path = path
-                        .iter()
-                        .cloned()
-                        .chain(std::iter::once(*n))
-                        .collect_vec();
-                    paths.push_back(new_path);
-                }
+                    CellState::Empty => {
+                        new_paths.push_back(new_path);
+                    }
+                    _ => (),
+                };
             }
         }
+        // At each step of the outer loop, paths have fixed length L.
+        // If there are paths leading to a target at distance L,
+        // - pick the best one (sorting by reading order of the attack tile, path[L-2])
+        // - return the first step
+        if let Some(best_path) = target_paths.iter().min_by_key(|path| path[path.len() - 2]) {
+            return Some(best_path[1]);
+        }
+        // otherwise, look for paths of length L+1
+        paths = new_paths;
     }
 
-    Move::Pass
+    None
 }
 
-fn part2(_map: &[Vec<char>]) -> usize {
-    0
+fn neighbor_indices(pos: &Position) -> [Position; 4] {
+    let (i, j) = *pos;
+    // no need to check boundaries - due to walls
+    // this will only be called with 0 < i, j < SIZE - 1
+    [(i - 1, j), (i, j - 1), (i, j + 1), (i + 1, j)]
 }
