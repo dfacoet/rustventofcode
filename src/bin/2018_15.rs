@@ -54,14 +54,24 @@ fn part1(input: &Grid) -> String {
     outcome.to_string()
 }
 
-fn part2(_input: &Grid) -> String {
-    "".to_string()
+fn part2(input: &Grid) -> String {
+    for elf_atk in 4..200 {
+        let (_, _, n_deads) = run_battle(input, elf_atk);
+        // print_grid(&grid);
+        if n_deads == 0 {
+            return elf_atk.to_string();
+        }
+    }
+    panic!("The elves cannot win without deaths");
 }
 
-fn run_battle(grid: &Grid, elf_atk: u64) -> (Grid, u64, UnitType) {
+// 20 is not the right answer
+
+fn run_battle(grid: &Grid, elf_atk: u64) -> (Grid, u64, u64) {
     let mut grid = *grid;
 
     let mut n_rounds = 0;
+    let mut n_dead_elves = 0;
     loop {
         let mut units = get_units(&grid);
         for unit in &mut units {
@@ -102,6 +112,9 @@ fn run_battle(grid: &Grid, elf_atk: u64) -> (Grid, u64, UnitType) {
                             target.hp -= atk;
                         } else {
                             grid[*ti][*tj] = CellState::Empty;
+                            if unit.unit_type == UnitType::Goblin {
+                                n_dead_elves += 1
+                            };
                         }
                     }
                     _ => panic!("No target found at {:},{:}", ti, tj),
@@ -115,7 +128,7 @@ fn run_battle(grid: &Grid, elf_atk: u64) -> (Grid, u64, UnitType) {
                 })
             }) {
                 // no enemies left, battle is over
-                return (grid, n_rounds, unit.unit_type);
+                return (grid, n_rounds, n_dead_elves);
             }
         }
         n_rounds += 1;
