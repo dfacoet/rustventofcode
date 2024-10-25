@@ -54,12 +54,10 @@ fn part1((immune_system, infection): &(Army, Army)) -> String {
 
     let mut i = 0;
     while !immune_system.is_empty() && !infection.is_empty() {
-        println!(
-            "Round {} - Immune System: {} Infection {}",
-            i,
-            immune_system.len(),
-            infection.len()
-        );
+        println!("Round {i}");
+        for group in immune_system.iter().chain(infection.iter()) {
+            println!("Group {} contains {} units", group.id, group.units);
+        }
         let target_map = select_targets(&immune_system, &infection)
             .into_iter()
             .chain(select_targets(&infection, &immune_system))
@@ -94,9 +92,12 @@ fn part1((immune_system, infection): &(Army, Army)) -> String {
                     .find(|g| g.id == *target_id)
                     .expect("Target ID not found");
                 let units_lost = damage(attacker, target) / target.hp;
+                print!("Group {attacker_id} attacks defending group {target_id}, killing ");
                 target.units = if units_lost < target.units {
+                    println!("{units_lost} units");
                     target.units - units_lost
                 } else {
+                    println!("all units");
                     to_remove.insert(target.id);
                     0
                 };
@@ -105,19 +106,18 @@ fn part1((immune_system, infection): &(Army, Army)) -> String {
 
         immune_system.retain(|g| !to_remove.contains(&g.id));
         infection.retain(|g| !to_remove.contains(&g.id));
-        if immune_system.len() < 2 {
-            println!("{:?}", immune_system);
-            println!("{:?}", infection);
-        };
+        // if immune_system.len() < 2 {
+        //     println!("{:?}", immune_system);
+        //     println!("{:?}", infection);
+        // };
         i += 1;
     }
-    for group in immune_system {
-        println!("{:?}", group)
-    }
-    for group in infection {
-        println!("{:?}", group)
-    }
-    "".to_string()
+    let remaining_units: u64 = immune_system
+        .iter()
+        .chain(infection.iter())
+        .map(|g| g.units)
+        .sum();
+    remaining_units.to_string()
 }
 
 fn part2((immune_system, infection): &(Army, Army)) -> String {
@@ -229,11 +229,17 @@ fn select_targets(attackers: &Army, defendants: &Army) -> HashMap<usize, Option<
 }
 
 fn damage(attacker: &Group, target: &Group) -> u64 {
-    if target.immunities.contains(&attacker.attack_type) {
+    let damage = if target.immunities.contains(&attacker.attack_type) {
         0
     } else if target.weaknesses.contains(&attacker.attack_type) {
         2 * attacker.effective_power()
     } else {
         attacker.effective_power()
-    }
+    };
+    println!(" Damage: {}->{} = {damage}", attacker.id, target.id);
+    damage
+}
+
+fn total_units(army: &Army) -> u64 {
+    army.iter().map(|g| g.units).sum()
 }
