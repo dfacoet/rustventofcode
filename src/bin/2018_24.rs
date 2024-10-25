@@ -7,8 +7,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use itertools::{Itertools, WhileSome};
-use regex::Regex;
+use itertools::Itertools;
 
 const YEAR: u16 = 2018;
 const DAY: u8 = 24;
@@ -53,42 +52,64 @@ fn part1((immune_system, infection): &(Army, Army)) -> String {
     let mut immune_system = immune_system.clone();
     let mut infection = infection.clone();
 
+    let mut i = 0;
     while !immune_system.is_empty() && !infection.is_empty() {
+        println!(
+            "Round {} - Immune System: {} Infection {}",
+            i,
+            immune_system.len(),
+            infection.len()
+        );
         let target_map = select_targets(&immune_system, &infection)
             .into_iter()
             .chain(select_targets(&infection, &immune_system))
             .collect::<HashMap<_, _>>();
 
-        let attack_order = immune_system
+        let attack_order: Vec<_> = immune_system
             .iter()
             .zip(repeat(ArmyType::ImmuneSystem))
             .chain(infection.iter().zip(repeat(ArmyType::Infection)))
-            .sorted_by_key(|(group, _)| Reverse(group.initiative));
+            .sorted_by_key(|(group, _)| Reverse(group.initiative))
+            .map(|(group, army)| (group.id.clone(), army))
+            .collect();
 
         let mut to_remove = HashSet::new();
-        for (attacker, side) in attack_order {
+        for (attacker_id, side) in attack_order {
             // TODO: make side a field of Group
+            let (attacking_army, defending_army) = match side {
+                ArmyType::ImmuneSystem => (&immune_system, &mut infection),
+                ArmyType::Infection => (&infection, &mut immune_system),
+            };
+            // TODO: Armies as hashmaps
+            let attacker = attacking_army
+                .iter()
+                .find(|g| g.id == attacker_id)
+                .expect("Attacker ID not found");
             if attacker.units == 0 {
                 continue;
             }
-            if let Some(target_id) = target_map.get(&attacker.id).expect("Attacker ID not found") {
-                let target = match side {
-                    ArmyType::ImmuneSystem => infection.iter_mut().find(|g| g.id == *target_id),
-                    ArmyType::Infection => immune_system.iter_mut().find(|g| g.id == *target_id),
-                }
-                .expect("Target ID not found");
+            if let Some(target_id) = target_map.get(&attacker_id).expect("Attacker ID not found") {
+                let target = defending_army
+                    .iter_mut()
+                    .find(|g| g.id == *target_id)
+                    .expect("Target ID not found");
                 let units_lost = damage(attacker, target) / target.hp;
                 target.units = if units_lost < target.units {
                     target.units - units_lost
                 } else {
                     to_remove.insert(target.id);
                     0
-                }
-            };
+                };
+            }
         }
 
         immune_system.retain(|g| !to_remove.contains(&g.id));
         infection.retain(|g| !to_remove.contains(&g.id));
+        if immune_system.len() < 2 {
+            println!("{:?}", immune_system);
+            println!("{:?}", infection);
+        };
+        i += 1;
     }
     for group in immune_system {
         println!("{:?}", group)
